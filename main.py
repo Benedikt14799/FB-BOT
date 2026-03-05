@@ -2,13 +2,11 @@
 main.py – CLI-Einstiegspunkt für den FB Messenger Bot.
 
 Verwendung:
-  python main.py login                          → Einmaliger Login-Setup
-  python main.py send --contact ID --message "Text"  → Einzelne Nachricht
-  python main.py send-all                       → Alle Kontakte aus config.py
+  python main.py login --account 1              → Einmaliger Login-Setup
+  python main.py send --contact ID --message "Text"  → Einzelne Nachricht (Test)
+  python main.py send-all                       → Alle Kontakte aus config.py (Test)
   python main.py send-all --dry-run             → Vorschau ohne Senden
-  python main.py start-daemon                   → Startet den automatischen Hintergrund-Sender
-  python main.py scrape-group --limit 50        → Liest neue Profile in die Datenbank ein
-  python main.py engage --limit 5               → Startet Phase 1: Organisches LLM Feed-Engagement
+  python main.py run                            → Startet den Always On Bot
 """
 
 import sys
@@ -98,8 +96,8 @@ def cmd_send_all(args) -> int:
     return 0 if results["fail"] == 0 else 1
 
 
-def cmd_start_daemon(args) -> int:
-    """Startet den asynchronen Multi-Account Daemon für den automatischen Versand."""
+def cmd_run(args) -> int:
+    """Startet den asynchronen Always On Daemon für alle Accounts."""
     import asyncio
     from account_manager import start_all_accounts
     
@@ -164,9 +162,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Beispiele:
-  python main.py login
-  python main.py scrape-group --limit 50
-  python main.py start-daemon
+  python main.py login --account 1
+  python main.py run
 ''',
     )
 
@@ -213,10 +210,10 @@ Beispiele:
         help="Nur Vorschau: zeigt was gesendet würde, sendet aber nichts",
     )
 
-    # ── start-daemon ───────────────────────────────────────────────
+    # ── run ───────────────────────────────────────────────
     daemon_parser = subparsers.add_parser(
-        "start-daemon",
-        help="Startet den Hintergrund-Service (Scheduler) zum Versenden",
+        "run",
+        help="Startet den Always On Hintergrund-Service für alle Accounts",
     )
 
     # ── scrape-group ───────────────────────────────────────────────
@@ -273,7 +270,7 @@ Beispiele:
         "login": cmd_login,
         "send": cmd_send,
         "send-all": cmd_send_all,
-        "start-daemon": cmd_start_daemon,
+        "run": cmd_run,
         "scrape-group": cmd_scrape_group,
         "engage": cmd_engage,
         "warmup": cmd_warmup,

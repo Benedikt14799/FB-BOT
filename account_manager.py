@@ -11,7 +11,8 @@ from playwright.async_api import async_playwright, Playwright
 
 from config import ACCOUNTS, BROWSER_ARGS, VIEWPORT, LOCALE, TIMEZONE_ID, USER_AGENT
 from utils import logger
-from sender import bot_cycle_for_account
+from daemon import run_account_loop
+from database import init_account_in_db
 
 STEALTH_INIT_SCRIPT = """
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
@@ -31,6 +32,8 @@ async def run_account(playwright: Playwright, account: dict, task_func=None, *ar
     account_name = account.get("name")
     session_file = account.get("session_file")
     proxy_config = account.get("proxy")
+
+    init_account_in_db(account_id)
 
     logger.info(f"[{account_name}] Initialisiere Browser-Instanz...")
 
@@ -87,12 +90,11 @@ async def run_account(playwright: Playwright, account: dict, task_func=None, *ar
 
         if task_func:
             logger.info(f"[{account_name}] Führe dedizierte CLI-Aufgabe aus...")
-            await task_func(page, account_id, *args, **kwargs)
+            await task_func(page, account_id, account, *args, **kwargs)
         else:
-            # Starte den asynchronen Bot-Loop für diesen Account
-            logger.info(f"[{account_name}] Übergabe an Endlos-Bot-Zyklus (Funnel & Sender)...")
-            while True:
-                await bot_cycle_for_account(account_id, context, page)
+            # Starte den asynchronen Always On Daemon-Loop für diesen Account
+            logger.info(f"[{account_name}] Übergabe an Always-On Daemon...")
+            await run_account_loop(account_id, account, context, page)
 
     except Exception as e:
         logger.critical(f"[{account_name}] Fataler Absturz der Instanz: {e}", exc_info=True)

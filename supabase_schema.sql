@@ -59,3 +59,22 @@ ALTER TABLE public.message_logs ENABLE ROW LEVEL SECURITY;
 -- Da das Script mit dem anon-Key läuft, erlauben wir Public Access für diesen MVP:
 CREATE POLICY "Enable all for authenticated or anon users" ON public.recipients FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all for authenticated or anon users" ON public.message_logs FOR ALL USING (true) WITH CHECK (true);
+
+-- 3. Tabelle für Account Tracking (Always On)
+CREATE TABLE public.accounts (
+    account_id INTEGER PRIMARY KEY,
+    first_login_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    messages_sent_today INTEGER DEFAULT 0,
+    last_activity_date DATE DEFAULT CURRENT_DATE,
+    login_retries INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TRIGGER update_accounts_modtime
+    BEFORE UPDATE ON public.accounts
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_modified_column();
+
+ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable all for authenticated or anon users" ON public.accounts FOR ALL USING (true) WITH CHECK (true);

@@ -37,29 +37,22 @@ async def _type_like_human(page: Page, selector: str, text: str):
         await page.keyboard.press(char)
         await asyncio.sleep(random.uniform(0.05, 0.15))
 
-async def bot_cycle_for_account(account_id: int, context, page: Page):
+async def send_single_message(account_id: int, context, page: Page) -> bool:
     """
-    Die asynchrone Endlosschleife für einen spezifischen Account.
-    Prüft die Inbox, holt das nächste Target und sendet Nachrichten.
+    Einziger Durchlauf: Prüft Inbox und sendet max. 1 Nachricht an ein Target.
+    Wiederkehrender Aufruf erfolgt nun über den Always On Daemon.
     """
-    logger.info(f"[Acc {account_id}] Starte Bot-Zyklus...")
+    logger.info(f"[Acc {account_id}] Sendezyklus gestartet...")
     
     # 1. Inbox checken (verändert ggf. DB-Zustände auf msg1_replied etc.)
     await check_inbox(page, account_id)
-    
-    # 2. Safety Check Daily Limits via Monitor (müsste account_id unterstützen, wir nehmen global)
-    if not monitor.is_safe_to_continue(80): # Limit idealerweise pro Account
-        logger.info(f"[Acc {account_id}] Tageslimit oder Error-Limit erreicht. Pausiere...")
-        await asyncio.sleep(3600)
-        return
 
     # 3. Nächstes Target holen
     target = get_next_pending_recipient(account_id)
     
     if not target:
-        logger.info(f"[Acc {account_id}] Keine pending/reply Targets gefunden. Warte...")
-        await asyncio.sleep(random.uniform(180, 480))
-        return
+        logger.info(f"[Acc {account_id}] Keine pending/reply Targets gefunden.")
+        return False
 
     db_id = target["id"]
     contact_id = target["facebook_id"]
@@ -91,7 +84,7 @@ async def bot_cycle_for_account(account_id: int, context, page: Page):
     
     if not message_text:
         logger.error(f"[Acc {account_id}] Konnte keine Nachricht für {stage} generieren.")
-        return
+        return False
 
     logger.info("=" * 60)
     logger.info(f"[Acc {account_id}] Sende [{stage}] an: {contact_name}\nText: {message_text}")
@@ -144,7 +137,8 @@ async def bot_cycle_for_account(account_id: int, context, page: Page):
     else:
         log_message(contact_id, 0, message_text, False, error_msg)
 
-    # Human Delay bis zum nächsten Target (3-8 Min + Micro)
-    delay_s = random.uniform(180, 480) + random.uniform(5, 30)
-    logger.info(f"[Acc {account_id}] Pausiere für {delay_s/60:.1f} Minuten nach Zyklus...")
+    # Optional: Human Delay unmittelbar NACHDEM die Aktion des Sendens ausgeführt wurde
+    delay_s = random.uniform(5, 20)
     await asyncio.sleep(delay_s)
+    
+    return success

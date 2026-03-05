@@ -6,6 +6,7 @@ Verwaltet die Datenbank-Operationen (Suchen, Hinzufügen, Status-Updates)
 """
 
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -127,4 +128,76 @@ def log_message(recipient_id: str, variant_id: int, content: str, success: bool,
         }).execute()
     except Exception as e:
         logger.error(f"Datenbank Logging fehlgeschlagen: {e}")
+
+# --- Account Tracking Logic ---
+
+def init_account_in_db(account_id: int):
+    """Initialisiert den Account in der Datenbank, falls er noch nicht existiert."""
+    try:
+        response = supabase.table("accounts").select("account_id").eq("account_id", account_id).execute()
+        if not response.data:
+            supabase.table("accounts").insert({"account_id": account_id}).execute()
+            logger.info(f"[DB] Account {account_id} in der Datenbank initialisiert.")
+    except Exception as e:
+        logger.error(f"[DB] Fehler beim Initialisieren von Account {account_id}: {e}")
+
+def get_account_age_days(account_id: int) -> int:
+    """Berechnet das Alter des Accounts in Tagen basierend auf first_login_at."""
+    try:
+        response = supabase.table("accounts").select("first_login_at").eq("account_id", account_id).execute()
+        if response.data:
+            first_login_str = response.data[0].get("first_login_at")
+            if first_login_str:
+                first_date = datetime.fromisoformat(first_login_str.replace("Z", "+00:00")).replace(tzinfo=None)
+                age = (datetime.now() - first_date).days
+                return max(0, age)
+        return 0
+    except Exception as e:
+        logger.error(f"[DB] Fehler beim Abrufen des Alters für Account {account_id}: {e}")
+        return 0
+
+def update_daily_account_stats(account_id: int):
+    """Setzt messages_sent_today zurück, wenn ein neuer Tag angebrochen ist."""
+    try:
+        response = supabase.table("accounts").select("last_activity_date").eq("account_id", account_id).execute()
+        if response.data:
+            last_date_str = response.data[0].get("last_activity_date")
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            
+            if last_date_str != today_str:
+                supabase.table("accounts").update({
+                    "messages_sent_today": 0,
+                    "last_activity_date": today_str
+                }).eq("account_id", account_id).execute()
+    except Exception as e:
+        logger.error(f"[DB] Fehler beim Update der Daily Stats für Account {account_id}: {e}")
+
+def get_messages_sent_today(account_id: int) -> int:
+    """Gibt die Anzahl der heute gesendeten Nachrichten für diesen Account zurück."""
+    update_daily_account_stats(account_id)
+    try:
+        response = supabase.table("accounts").select("messages_sent_today").eq("account_id", account_id).execute()
+        if response.data:
+             return response.data[0].get("messages_sent_today", 0)
+        return 0
+    except Exception as e:
+        logger.error(f"[DB] Fehler beim Abrufen von messages_sent_today für Account {account_id}: {e}")
+        return 0
+
+def record_message_sent(account_id: int):
+    """Zählt messages_sent_today für den Account hoch."""
+    try:
+        current = get_messages_sent_today(account_id)
+        supabase.table("accounts").update({"messages_sent_today": current + 1}).eq("account_id", account_id).execute()
+    except Exception as e:
+        logger.error(f"[DB] Fehler beim Inkrementieren von messages_sent_today für Account {account_id}: {e}")
+
+def is_already_contacted(facebook_id: str) -> bool:
+    """Prüft, ob diese Person jemals (von irgendeinem Account) angeschrieben oder erfasst wurde."""
+    try:
+        response = supabase.table("recipients").select("id").eq("facebook_id", facebook_id).execute()
+        return len(response.data) > 0
+    except Exception as e:
+        logger.error(f"[DB] Fehler bei is_already_contacted für {facebook_id}: {e}")
+        return False
 
