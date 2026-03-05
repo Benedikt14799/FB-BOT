@@ -22,7 +22,8 @@ from config import RECIPIENTS, BULK_DELAY_MIN, BULK_DELAY_MAX
 def cmd_login(args) -> int:
     """Führt den manuellen Login-Flow aus."""
     from login import run_login
-    run_login()
+    account_id = getattr(args, "account", 1)
+    run_login(account_id)
     return 0
 
 
@@ -173,9 +174,15 @@ Beispiele:
     subparsers.required = True
 
     # ── login ──────────────────────────────────────────────────────
-    subparsers.add_parser(
+    login_parser = subparsers.add_parser(
         "login",
         help="Einmaliger manueller Login-Setup (Chrome öffnet sich)",
+    )
+    login_parser.add_argument(
+        "--account",
+        type=int,
+        default=1,
+        help="Für welchen Account (1-6) der Login durchgeführt werden soll (Standard: 1)",
     )
 
     # ── send ───────────────────────────────────────────────────────
