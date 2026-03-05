@@ -1,0 +1,12 @@
+fb_profile/
+.env
+*.png
+*.log
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Security
+sessions/
+config.yaml

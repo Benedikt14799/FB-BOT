@@ -1,0 +1,102 @@
+# config.yaml – Zentrale FB Bot Konfiguration
+
+# ─────────────────────────────────────────────
+# 1. API Keys & Authentifizierung
+# ─────────────────────────────────────────────
+openai_api_key: "sk-proj-... (wird aus .env geladen, hier nur als Fallback möglich)"
+
+# ─────────────────────────────────────────────
+# 2. Zielgruppe & Basis-Setup
+# ─────────────────────────────────────────────
+group_id: "113272172344279"         # Numerische ID der Facebook-Gruppe
+group_name: "Knie Probleme - Meniskus, Kreuzband & Co."
+
+# ─────────────────────────────────────────────
+# 3. Timing & Limits (Phase 2 Nachrichten)
+# ─────────────────────────────────────────────
+timing:
+  active_hours_start: 9             # 09:00 Uhr
+  active_hours_end: 20              # 20:59 Uhr
+  max_daily_messages: 80            # Max Nachrichten pro Tag
+  scheduler_delay_min_sec: 180      # 3 Minuten Minimum zwischen Nachrichten
+  scheduler_delay_max_sec: 480      # 8 Minuten Maximum
+  typing_micro_delay_min_sec: 5     # Zufällige Tipp-Simulation Min
+  typing_micro_delay_max_sec: 30    # Zufällige Tipp-Simulation Max
+
+# ─────────────────────────────────────────────
+# 4. Multi-Account Management & Funnel
+# ─────────────────────────────────────────────
+funnel:
+  msg1_delay_min_hours: 24          # Warten nach Msg1 auf Antwort
+  msg1_reply_delay_min_minutes: 30  # Delay wenn User auf Msg1 antwortet (für Msg2)
+  msg1_reply_delay_max_minutes: 90
+  msg2_delay_min_hours: 24          # Warten nach Msg2 auf Antwort
+  msg2_reply_delay_min_minutes: 30  # Delay wenn User auf Msg2 antwortet (für Offer)
+  msg2_reply_delay_max_minutes: 60
+
+accounts:
+  - id: 1
+    name: "Account 1"
+    email: "account1@mail.com"
+    password: "..."
+    session_file: "sessions/account1.json"
+    proxy:
+      server: "http://proxy1.webshare.io:8080"
+      username: "user1"
+      password: "pass1"
+  - id: 2
+    name: "Account 2"
+    email: "account2@mail.com"
+    password: "..."
+    session_file: "sessions/account2.json"
+    proxy:
+      server: "http://proxy2.webshare.io:8080"
+      username: "user2"
+      password: "pass2"
+  - id: 3
+    name: "Account 3"
+    email: "account3@mail.com"
+    password: "..."
+    session_file: "sessions/account3.json"
+    proxy:
+      server: "http://proxy3.webshare.io:8080"
+      username: "user3"
+      password: "pass3"
+  - id: 4
+    name: "Account 4"
+    email: "account4@mail.com"
+    password: "..."
+    session_file: "sessions/account4.json"
+    proxy:
+      server: "http://proxy4.webshare.io:8080"
+      username: "user4"
+      password: "pass4"
+  - id: 5
+    name: "Account 5"
+    email: "account5@mail.com"
+    password: "..."
+    session_file: "sessions/account5.json"
+    proxy:
+      server: "http://proxy5.webshare.io:8080"
+      username: "user5"
+      password: "pass5"
+  - id: 6
+    name: "Account 6"
+    email: "account6@mail.com"
+    password: "..."
+    session_file: "sessions/account6.json"
+    proxy:
+      server: "http://proxy6.webshare.io:8080"
+      username: "user6"
+      password: "pass6"
+
+# ─────────────────────────────────────────────
+# 5. Messenger / E2EE
+
+# ─────────────────────────────────────────────
+messenger_pin: "120499"             # PIN für Chatverlauf-Wiederherstellung
+
+# ─────────────────────────────────────────────
+# 6. Logging & Dev
+# ─────────────────────────────────────────────
+log_level: "INFO"                   # DEBUG, INFO, WARNING, ERROR, CRITICAL
