@@ -193,11 +193,24 @@ def record_message_sent(account_id: int):
         logger.error(f"[DB] Fehler beim Inkrementieren von messages_sent_today für Account {account_id}: {e}")
 
 def is_already_contacted(facebook_id: str) -> bool:
-    """Prüft, ob diese Person jemals (von irgendeinem Account) angeschrieben oder erfasst wurde."""
+    """Prüft anhand der globalen contacted_profiles Tabelle, ob diese Person schon kontaktiert wurde."""
     try:
-        response = supabase.table("recipients").select("id").eq("facebook_id", facebook_id).execute()
+        response = supabase.table("contacted_profiles").select("id").eq("profile_id", facebook_id).execute()
         return len(response.data) > 0
     except Exception as e:
         logger.error(f"[DB] Fehler bei is_already_contacted für {facebook_id}: {e}")
-        return False
+        # Aus Sicherheitsgründen True zurückgeben falls unklar, um Spam zu verhindern
+        return True
+
+def mark_as_contacted(profile_id: str, account_id: int, stage: str):
+    """Schreibt in contacted_profiles, dass dieser User angeschrieben wurde."""
+    try:
+        supabase.table("contacted_profiles").upsert({
+            "profile_id": profile_id,
+            "account_id": str(account_id),
+            "contacted_at": datetime.utcnow().isoformat(),
+            "stage": stage
+        }).execute()
+    except Exception as e:
+         logger.error(f"[DB] Fehler beim Markieren von mark_as_contacted: {e}")
 

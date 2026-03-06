@@ -11,7 +11,7 @@ from openai import OpenAI
 
 from config import OPENAI_API_KEY, GROUP_NAME
 from utils import logger
-
+from database import supabase
 
 # Initialisiere OpenAI Client
 if not OPENAI_API_KEY or OPENAI_API_KEY.startswith("sk-proj-..."):
@@ -20,6 +20,76 @@ if not OPENAI_API_KEY or OPENAI_API_KEY.startswith("sk-proj-..."):
 else:
     client = OpenAI(api_key=OPENAI_API_KEY)
 
+def _log_token_usage(account_id: int, msg_type: str, prompt_tokens: int, completion_tokens: int):
+    """Protokolliert den Token-Verbrauch im Supabase-Backend (gpt_usage Tabelle)."""
+    if not supabase: return
+    try:
+         # Berechne USD-Kosten: OpenAI gpt-4o-mini = $0.150/1M In, $0.600/1M Out
+         cost_usd = (prompt_tokens / 1000 * 0.00015) + (completion_tokens / 1000 * 0.0006)
+         
+         supabase.table("gpt_usage").insert({
+             "account_id": str(account_id),
+             "type": msg_type,
+             "tokens_input": prompt_tokens,
+             "tokens_output": completion_tokens,
+             "cost_usd": cost_usd
+         }).execute()
+    except Exception as e:
+         logger.error(f"[DB] Fehler beim Speichern der Token-Usage: {e}")
+
+def generate_message_1(name: str, group: str, last_post: str, account_id: int = 0) -> str:
+    """Generiert eine personalisierte Erstnachricht via GPT-4o-mini."""
+    if not client: return f"Hey {name}, wir sind ja in der gleichen Gruppe {group}. Alles cool bei dir?"
+    
+    prompt = f"""
+Du schreibst als normaler Facebook-Nutzer eine erste, kurze, persönliche Nachricht.
+Ziel: natürlich klingen, kein Verkauf, einfach Interesse wecken.
+
+Name: {name}
+Gemeinsame Gruppe: {group}
+Letzter Post des Nutzers: {last_post}
+
+Schreibe 2 Varianten. Maximal 2 Sätze je Variante. Kein "Hey" als Opener.
+"""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.9
+        )
+        if hasattr(response, 'usage') and response.usage:
+             _log_token_usage(account_id, "msg1", response.usage.prompt_tokens, response.usage.completion_tokens)
+             
+        variants = response.choices[0].message.content.strip().split("\n\n")
+        return random.choice(variants)
+    except Exception as e:
+        logger.error(f"Fehler bei GPT generate_message_1: {e}")
+        return f"Grüß dich {name}! Sind ja beide in der {group} Gruppe. Wie gehts?"
+
+def generate_reply(conversation_history: list, account_id: int = 0) -> str:
+    """Beantwortet eine Nachricht unter Berücksichtigung des Chat-Verlaufs."""
+    if not client: return "Oh cool! Schreib dir später ausführlicher dazu."
+    
+    messages = [{"role": "system", "content": "Du bist ein normaler Facebook-Nutzer. Antworte kurz, freundlich, neugierig."}]
+    
+    # Historie formatieren
+    for msg in conversation_history:
+        role = "assistant" if msg.get("sender") == "bot" else "user"
+        messages.append({"role": role, "content": msg.get("text", "")})
+        
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0.85
+        )
+        if hasattr(response, 'usage') and response.usage:
+             _log_token_usage(account_id, response.usage.prompt_tokens, response.usage.completion_tokens)
+             
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"Fehler bei GPT generate_reply: {e}")
+        return "Haha, verstehe ich! Muss kurz los, bis später!"
 
 SYSTEM_PROMPT = f"""Du bist ein echter Nutzer der Facebook-Gruppe '{GROUP_NAME}'.
 

@@ -13,6 +13,8 @@ from config import ACCOUNTS, BROWSER_ARGS, VIEWPORT, LOCALE, TIMEZONE_ID, USER_A
 from utils import logger
 from daemon import run_account_loop
 from database import init_account_in_db
+from proxy_manager import get_proxy, test_proxy
+from monitor import monitor
 
 STEALTH_INIT_SCRIPT = """
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
@@ -47,7 +49,16 @@ async def run_account(playwright: Playwright, account: dict, task_func=None, *ar
                 "password": proxy_config.get("password", "")
             }
 
-        # Browser starten
+        # 1. IP Check via Requests
+        requests_proxy = get_proxy(account)
+        if not test_proxy(account_id, requests_proxy):
+            # Proxy defekt -> 24 Stunden blockieren
+            logger.critical(f"[{account_name}] Proxy-Verbindung fehlgeschlagen. Account wird aus Sicherheitsgründen pausiert.")
+            monitor.send_alert(f"Proxy-Fehler bei {account_name} – Account heute pausiert.")
+            await asyncio.sleep(24 * 3600)
+            return
+
+        # 2. Browser starten
         browser = await playwright.chromium.launch(
             headless=False, # Für Tests sichtbar, später ggf True
             args=BROWSER_ARGS,
@@ -77,16 +88,14 @@ async def run_account(playwright: Playwright, account: dict, task_func=None, *ar
         page = await context.new_page()
         await page.add_init_script(STEALTH_INIT_SCRIPT)
         
-        # Test-Navigation um Proxy und Session zu validieren
-        logger.info(f"[{account_name}] Instanz bereit. Führe Test-Navigation zu FB aus...")
-        try:
-            await page.goto("https://www.facebook.com/", wait_until="domcontentloaded", timeout=30000)
-            if await page.locator('input[type="password"]').count() > 0:
-                logger.error(f"[{account_name}] ACHTUNG: Session ist ausgelaufen, Login erforderlich!")
-            else:
-                logger.info(f"[{account_name}] Erfolgreich authentifiziert.")
-        except Exception as e:
-             logger.error(f"[{account_name}] Navigation fehlgeschlagen, evtl. Proxy offline? {e}")
+        # Test-Navigation und sicherer Auto-Login Check (Gap 2)
+        from safe_login import safe_login
+        login_ok = await safe_login(account, page, context)
+        if not login_ok:
+             logger.critical(f"[{account_name}] Finaler Login/Session check fehlgeschlagen. Beende Instanz.")
+             await context.close()
+             await browser.close()
+             return
 
         if task_func:
             logger.info(f"[{account_name}] Führe dedizierte CLI-Aufgabe aus...")

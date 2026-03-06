@@ -1,0 +1,19 @@
+"""
+supabase_client.py – Nutzt den existierenden Supabase Client des Bots für das Dashboard.
+Streamlit lädt die Daten synchron, da es kein natives asyncio unterstützt.
+"""
+import os
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+# ENV laden (aus Hauptverzeichnis)
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../../.env'))
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Missing SUPABASE_URL or SUPABASE_KEY in .env")
+
+# Synchroner Supabase Client für das Dashboard
+sb: Client = create_client(SUPABASE_URL, SUPABASE_KEY)

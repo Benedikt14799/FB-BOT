@@ -29,6 +29,24 @@ class BotMonitor:
         today = datetime.now().strftime("%Y-%m-%d")
         self.current_log_file = os.path.join(LOGS_DIR, f"bot_run_{today}.log")
 
+    def send_alert(self, message: str, alert_type: str = "SYSTEM_WARNING", account_id: str = "GLOBAL"):
+        """
+        Sendet eine Warnung an das Streamlit-Dashboard (in die `alerts` Tabelle).
+        Zusätzlich auch ins Log.
+        """
+        logger.warning(f"[ALERT] {alert_type}: {message.strip()}")
+        
+        try:
+            from database import supabase
+            if supabase:
+                supabase.table("alerts").insert({
+                    "account_id": str(account_id),
+                    "type": alert_type,
+                    "detail": message.strip()
+                }).execute()
+        except Exception as e:
+            logger.error(f"Konnte Alert nicht an DB senden: {e}")
+
     def _write_to_log(self, message: str):
         """Schreibt in die tägliche Protokolldatei."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

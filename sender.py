@@ -12,8 +12,8 @@ import random
 from datetime import datetime
 from playwright.async_api import Page, TimeoutError
 
-from database import get_next_pending_recipient, update_recipient_state, log_message
-from llm_engine import generate_message_for_stage
+from database import get_next_pending_recipient, update_recipient_state, log_message, is_already_contacted, mark_as_contacted
+from llm_engine import generate_message_1, generate_reply
 from monitor import monitor
 from utils import logger
 from conversation import check_inbox
@@ -56,6 +56,13 @@ async def send_single_message(account_id: int, context, page: Page) -> bool:
 
     db_id = target["id"]
     contact_id = target["facebook_id"]
+    
+    # Global Duplicate Check (Gap 3)
+    if target["conversation_state"] == "new" and is_already_contacted(contact_id):
+         logger.info(f"[Acc {account_id}] [SKIP] {target['name']} – bereits von einem Account kontaktiert.")
+         update_recipient_state(db_id, "blacklisted", account_id) # Nicht mehr probieren
+         return False
+         
     contact_name = target["name"]
     current_state = target["conversation_state"]
     history_str = target.get("conversation_history", "[]")
@@ -79,8 +86,11 @@ async def send_single_message(account_id: int, context, page: Page) -> bool:
         await asyncio.sleep(60)
         return
 
-    # Nachricht generieren via GPT-4o-mini
-    message_text = generate_message_for_stage(stage, contact_name, GROUP_NAME, history)
+    # Nachricht generieren via GPT-4o-mini (Gap 4)
+    if stage == "msg1":
+         message_text = generate_message_1(contact_name, GROUP_NAME, target.get("last_post", ""), account_id)
+    else:
+         message_text = generate_reply(history, account_id)
     
     if not message_text:
         logger.error(f"[Acc {account_id}] Konnte keine Nachricht für {stage} generieren.")
@@ -134,6 +144,8 @@ async def send_single_message(account_id: int, context, page: Page) -> bool:
             "conversation_history": json.dumps(history)
         })
         log_message(contact_id, 0, message_text, True)
+        # Mark in global dictionary (Gap 3)
+        mark_as_contacted(contact_id, account_id, next_state)
     else:
         log_message(contact_id, 0, message_text, False, error_msg)
 

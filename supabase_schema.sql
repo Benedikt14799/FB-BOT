@@ -78,3 +78,15 @@ CREATE TRIGGER update_accounts_modtime
 
 ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable all for authenticated or anon users" ON public.accounts FOR ALL USING (true) WITH CHECK (true);
+
+-- 4. Tabelle für Global Duplicate Check (Gap 3)
+CREATE TABLE public.contacted_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_id TEXT UNIQUE NOT NULL,
+    account_id TEXT,
+    contacted_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    stage TEXT
+);
+
+ALTER TABLE public.contacted_profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable all for authenticated or anon users" ON public.contacted_profiles FOR ALL USING (true) WITH CHECK (true);

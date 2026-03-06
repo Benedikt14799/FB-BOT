@@ -1,0 +1,13 @@
+[Unit]
+Description=Bot Dashboard (Streamlit)
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/bot/dashboard
+# Falls Python in einer venv läuft, den Pfad hier anpassen, z.B. /bot/venv/bin/streamlit
+ExecStart=streamlit run app.py --server.port 8501 --server.headless true
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

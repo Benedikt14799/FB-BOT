@@ -140,21 +140,6 @@ def cmd_engage(args) -> int:
     return 0
 
 
-def cmd_warmup(args) -> int:
-    """Simuliert menschliches Surfen für den Account-Trust."""
-    import asyncio
-    from warmup import perform_warmup
-    from account_manager import run_single_account_task
-    
-    account_id = getattr(args, "account", 1)
-    
-    try:
-        asyncio.run(run_single_account_task(account_id, perform_warmup))
-    except KeyboardInterrupt:
-        logger.info("Warmup durch Benutzer abgebrochen.")
-    return 0
-
-
 def main():
     parser = argparse.ArgumentParser(
         prog="fb-bot",
@@ -252,18 +237,6 @@ Beispiele:
         help="Maximale Anzahl an Posts, mit denen interagiert werden soll (Standard: 5)",
     )
 
-    # ── warmup ─────────────────────────────────────────────────────
-    warmup_parser = subparsers.add_parser(
-        "warmup",
-        help="Surft für den Account 1-3 Minuten organisch auf FB rum",
-    )
-    warmup_parser.add_argument(
-        "--account",
-        type=int,
-        default=1,
-        help="Welcher Account (1-6) benutzt werden soll (Standard: 1)",
-    )
-
     args = parser.parse_args()
 
     command_map = {
@@ -273,7 +246,6 @@ Beispiele:
         "run": cmd_run,
         "scrape-group": cmd_scrape_group,
         "engage": cmd_engage,
-        "warmup": cmd_warmup,
     }
 
     exit_code = command_map[args.command](args)
